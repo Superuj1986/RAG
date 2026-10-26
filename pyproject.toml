@@ -19,6 +19,7 @@ dependencies = [
     "pymupdf>=2.0",
     "python-dotenv>=1.2.4",
     "sentence-transformers>=6.2.0",
+    "spaces>=0.51.3",
     "trulens>=2.16.0",
     "trulens-providers-openai>=2.16.0",
 ]

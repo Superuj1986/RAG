@@ -4,14 +4,18 @@ from pathlib import Path
 from time import perf_counter
 
 import gradio as gr
+import spaces
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from reading import RAGEngine  # noqa: E402
+from reading.indexing import configure_models  # noqa: E402
 
 engine = RAGEngine()
+configure_models()
 
 
+@spaces.GPU(duration=120)
 def ingest(files):
     if not files:
         return "Upload at least one PDF."
@@ -28,6 +32,7 @@ def ingest(files):
         return f"Ingestion failed: {exc}"
 
 
+@spaces.GPU(duration=120)
 def answer(question, strategy):
     try:
         started = perf_counter()
