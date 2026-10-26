@@ -19,4 +19,4 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           git remote add space https://username:$HF_TOKEN@huggingface.co/spaces/Superuj/RAG
-          git push --force space main
+          git push --force space master:main
