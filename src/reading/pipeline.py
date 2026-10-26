@@ -5,7 +5,11 @@ from pathlib import Path
 from llama_index.core import Document, VectorStoreIndex
 
 from reading.config import get_settings
-from reading.generation import configure_llm, generate_answer
+from reading.generation import (
+    configure_llm,
+    generate_answer,
+    is_service_unavailable,
+)
 from reading.indexing import (
     Strategy,
     build_and_persist_index,
@@ -141,31 +145,66 @@ class RAGEngine:
 
     def ask_stream(self, question: str, strategy: Strategy = "direct"):
         """Yield the growing answer and its retrieved sources as tokens arrive."""
+        query_started = perf_counter()
         question = question.strip()
         if not question:
             raise ValueError("Question cannot be empty.")
 
-        index = self.get_index(strategy)
-        query_engine = build_query_engine(
-            index=index,
-            strategy=strategy,
-            llm=configure_llm(),
+        config = get_settings()
+        models = list(
+            dict.fromkeys((config.gemini_model, config.gemini_fallback_model))
         )
-        response = generate_answer(query_engine, question)
+        index = self.get_index(strategy)
 
-        sources = []
-        for source_node in response.source_nodes:
-            metadata = source_node.node.metadata
-            sources.append(
-                {
-                    "text": source_node.node.get_content()[:1200],
-                    "score": source_node.score,
-                    "file_name": metadata.get("file_name", "Unknown"),
-                    "page_label": metadata.get("page_label", "Unknown"),
-                }
-            )
+        for attempt, model in enumerate(models):
+            try:
+                query_engine = build_query_engine(
+                    index=index,
+                    strategy=strategy,
+                    llm=configure_llm(model),
+                )
+                response = generate_answer(query_engine, question)
 
-        answer_text = ""
-        for token in response.response_gen:
-            answer_text += token
-            yield answer_text, sources
+                sources = []
+                for source_node in response.source_nodes:
+                    metadata = source_node.node.metadata
+                    sources.append(
+                        {
+                            "text": source_node.node.get_content()[:1200],
+                            "score": source_node.score,
+                            "file_name": metadata.get("file_name", "Unknown"),
+                            "page_label": metadata.get("page_label", "Unknown"),
+                        }
+                    )
+
+                print(
+                    f"[QUERY] Retrieved {len(sources)} sources and prepared "
+                    f"{model} in {perf_counter() - query_started:.2f}s",
+                    flush=True,
+                )
+
+                if attempt:
+                    yield f"Primary model unavailable; using {model}.\n\n", sources
+
+                answer_text = ""
+                stream_started = perf_counter()
+                first_token = True
+                for token in response.response_gen:
+                    if first_token:
+                        print(
+                            f"[QUERY] First token from {model} after "
+                            f"{perf_counter() - stream_started:.2f}s",
+                            flush=True,
+                        )
+                        first_token = False
+                    answer_text += token
+                    yield answer_text, sources
+                return
+            except Exception as exc:
+                if attempt + 1 >= len(models) or not is_service_unavailable(exc):
+                    raise
+                print(
+                    f"[WARN] Gemini model {model} unavailable; falling back to "
+                    f"{models[attempt + 1]}: {exc}",
+                    flush=True,
+                )

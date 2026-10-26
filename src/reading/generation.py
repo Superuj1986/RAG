@@ -7,12 +7,13 @@ from llama_index.llms.google_genai import GoogleGenAI
 from reading.config import get_settings
 
 
-@lru_cache(maxsize=1)
-def configure_llm() -> GoogleGenAI:
+@lru_cache(maxsize=4)
+def configure_llm(model: str | None = None) -> GoogleGenAI:
     config = get_settings()
+    model_name = model or config.gemini_model
 
     llm = GoogleGenAI(
-        model=config.gemini_model,
+        model=model_name,
         api_key=config.get_google_api_key(),
     )
 
@@ -27,3 +28,8 @@ def generate_answer(query_engine, question: str):
         raise ValueError("Question cannot be empty.")
 
     return query_engine.query(question)
+
+
+def is_service_unavailable(error: Exception) -> bool:
+    message = str(error).lower()
+    return "503" in message or "unavailable" in message

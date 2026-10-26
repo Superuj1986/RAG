@@ -19,7 +19,8 @@ class AppConfig(BaseSettings):
     )
     openai_api_key: SecretStr | None = None
 
-    gemini_model: str = "gemini-3.8-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_fallback_model: str = "gemini-3.6-flash"
     openai_model: str = "gpt-4o-mini"
 
     embed_model: str = "sentence-transformers/paraphrase-MiniLM-L3-v2"
