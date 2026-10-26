@@ -1,8 +1,13 @@
 
-import gradio as gr
+import sys
+from pathlib import Path
 from time import perf_counter
 
-from reading import RAGEngine
+import gradio as gr
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
+from reading import RAGEngine  # noqa: E402
 
 engine = RAGEngine()
 
