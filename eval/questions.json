@@ -1,0 +1,12 @@
+
+[
+  {
+    "question": "What is the main topic of the document?"
+  },
+  {
+    "question": "What are the most important conclusions?"
+  },
+  {
+    "question": "Which evidence supports the document's main argument?"
+  }
+]

@@ -1,0 +1,16 @@
+
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+data/documents/*
+data/indexes/*
+!data/documents/.gitkeep
+!data/indexes/.gitkeep
+*.log
+.DS_Store
