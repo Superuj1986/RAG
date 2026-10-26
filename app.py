@@ -25,8 +25,7 @@ def ingest(files):
         return (
             "Ingestion completed.\n\n"
             f"Documents/pages loaded: {result['documents']}\n\n"
-            "Direct index is ready. Sentence Window and Auto Merging indexes "
-            "will be built the first time you use those strategies."
+            "Finish indexing document. Please select Ask Question tab to ask question"
         )
     except Exception as exc:
         return f"Ingestion failed: {exc}"
