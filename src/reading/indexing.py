@@ -1,4 +1,3 @@
-from time import perf_counter
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -27,19 +26,12 @@ Strategy = Literal["direct", "sentence_window", "auto_merging"]
 def configure_models() -> None:
     config = get_settings()
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    if device == "cuda":
-        print(
-            f"[INFO] Embedding device: CUDA ({torch.cuda.get_device_name(0)})",
-            flush=True,
-        )
-    else:
-        print("[INFO] Embedding device: CPU (CUDA unavailable)", flush=True)
 
     Settings.embed_model = HuggingFaceEmbedding(
         model_name=config.embed_model,
         device=device,
         embed_batch_size=64,
-        show_progress_bar=True,
+        show_progress_bar=False,
     )
 
 
@@ -47,17 +39,7 @@ def build_index(
     documents,
     strategy: Strategy,
 ) -> VectorStoreIndex:
-    total_start = perf_counter()
-
-    print("[1/4] Configuring models...", flush=True)
-    start = perf_counter()
     configure_models()
-    print(
-        f"[DONE] Models configured in {perf_counter() - start:.2f}s",
-        flush=True,
-    )
-
-    print(f"[INFO] Received {len(documents)} documents", flush=True)
 
     if strategy == "direct":
         parser = SentenceSplitter(
@@ -80,39 +62,12 @@ def build_index(
     else:
         raise ValueError(f"Unknown strategy: {strategy}")
 
-    print("[2/4] Splitting documents into nodes...", flush=True)
-    start = perf_counter()
     nodes = parser.get_nodes_from_documents(documents)
-    print(
-        f"[DONE] Created {len(nodes)} nodes in "
-        f"{perf_counter() - start:.2f}s",
-        flush=True,
-    )
 
     if not nodes:
         raise ValueError("The parser produced no nodes.")
 
-    print("[3/4] Creating VectorStoreIndex and embeddings...", flush=True)
-    start = perf_counter()
-    print(f"[DEBUG] Number of nodes: {len(nodes)}", flush=True)
-    print(
-        f"[DEBUG] Total text: {sum(len(node.get_content()) for node in nodes):,} characters",
-        flush=True,
-    )
-    print(
-        f"[DEBUG] First node length: {len(nodes[0].get_content())} characters",
-        flush=True,
-    )
     index = VectorStoreIndex(nodes)
-    print(
-        f"[DONE] Index created in {perf_counter() - start:.2f}s",
-        flush=True,
-    )
-
-    print(
-        f"[4/4] Total build time: {perf_counter() - total_start:.2f}s",
-        flush=True,
-    )
     return index
 
 
@@ -125,28 +80,12 @@ def build_and_persist_index(
     strategy: Strategy,
     persist_dir: str | Path | None = None,
 ) -> VectorStoreIndex:
-    start = perf_counter()
-    print(f"[INDEX] Building index: {strategy}", flush=True)
-
     index = build_index(documents, strategy)
-
-    print(
-        f"[INDEX] Index built in {perf_counter() - start:.2f}s",
-        flush=True,
-    )
 
     destination = Path(persist_dir) if persist_dir else index_directory(strategy)
     destination.mkdir(parents=True, exist_ok=True)
 
-    start = perf_counter()
-    print(f"[PERSIST] Saving index to {destination}", flush=True)
-
     index.storage_context.persist(persist_dir=str(destination))
-
-    print(
-        f"[PERSIST] Saved in {perf_counter() - start:.2f}s",
-        flush=True,
-    )
 
     return index
 

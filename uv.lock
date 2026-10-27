@@ -4066,6 +4066,7 @@ dependencies = [
     { name = "pymupdf" },
     { name = "python-dotenv" },
     { name = "sentence-transformers" },
+    { name = "spaces" },
     { name = "trulens" },
     { name = "trulens-providers-openai" },
 ]
@@ -4089,6 +4090,7 @@ requires-dist = [
     { name = "pymupdf", specifier = ">=2.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
     { name = "sentence-transformers", specifier = ">=6.2.0" },
+    { name = "spaces", specifier = ">=0.51.3" },
     { name = "trulens", specifier = ">=2.16.0" },
     { name = "trulens-providers-openai", specifier = ">=2.16.0" },
 ]
@@ -4662,6 +4664,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/19/63/0b6bae54546aed98d72f12d09df57b19a287f01c84d22047fa2e23772ab9/soupsieve-3.0.4.tar.gz", hash = "sha256:924fab84ae21604c19e175e1f39815eb6fa83ba23836e09e9de180925e5bc4c0", size = 119017, upload-time = "2026-10-22T00:45:26.362Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/07/66/473f7ca0be0b06e38ee8c85ee2db184e3981bd769fac2e7c19c8a8865211/soupsieve-3.0.4-py3-none-any.whl", hash = "sha256:8412826614f9c632227067d0985aeb9f584bd15efc852955430e097a9fe7afbf", size = 42458, upload-time = "2026-10-22T00:45:24.843Z" },
+]
+
+[[package]]
+name = "spaces"
+version = "0.51.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "gradio" },
+    { name = "httpx" },
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ad/9c/8d72b1736fdb27be10bb3596f0bcbd1a6d0ec66e795d3e7ca56160e76ab7/spaces-0.51.3.tar.gz", hash = "sha256:affe3e60a114f9d2cc8394526460f82acaac4351d5982e8741b36dace736f8ae", size = 88743, upload-time = "2026-08-31T13:19:25.768Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/b3/f6c0dfa766e0fc5ae66466235c13be580e543d8d2d9023f678ba5859adca/spaces-0.51.3-py3-none-any.whl", hash = "sha256:e588ce6b4301c566139d84bafb1c30b555967ce4ee2792be659ee5643f0f7eb1", size = 111776, upload-time = "2026-08-31T13:19:27.829Z" },
 ]
 
 [[package]]

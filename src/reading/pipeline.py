@@ -1,4 +1,3 @@
-from time import perf_counter
 import shutil
 from pathlib import Path
 
@@ -27,41 +26,21 @@ class RAGEngine:
         self.documents: list[Document] = []
 
     def ingest_directory(self, directory: str | Path | None = None):
-        total_start = perf_counter()
-
-        print("[1/4] Resolving source directory...", flush=True)
         source_dir = Path(directory or self.config.data_dir)
 
-        print(f"[2/4] Loading documents from {source_dir}...", flush=True)
-        start = perf_counter()
         documents = load_directory(source_dir)
-        print(
-            f"[DONE] Loaded {len(documents)} documents "
-            f"in {perf_counter() - start:.2f}s",
-            flush=True,
-        )
 
-        print("[3/4] Removing stale indexes...", flush=True)
         for strategy in ("sentence_window", "auto_merging"):
             stale_index = index_directory(strategy)
             if stale_index.is_dir():
                 shutil.rmtree(stale_index)
-                print(f"[DONE] Removed {strategy} index", flush=True)
 
         self.documents = documents
         self.indexes = {}
 
-        print("[4/4] Building and persisting direct index...", flush=True)
-        start = perf_counter()
         direct_index = build_and_persist_index(documents, "direct")
-        print(
-            f"[DONE] Direct index built in {perf_counter() - start:.2f}s",
-            flush=True,
-        )
 
         self.indexes = {"direct": direct_index}
-
-        print(f"[DONE] Total ingestion: {perf_counter() - total_start:.2f}s", flush=True)
 
         return {
             "documents": len(documents),
@@ -88,19 +67,26 @@ class RAGEngine:
 
             saved_paths.append(target)
 
-        print("Code run passed this 1")
-
         return self.ingest_directory(destination)
 
     def get_index(self, strategy: Strategy) -> VectorStoreIndex:
         if strategy not in self.indexes:
-            if self.documents:
+            # Gradio/ZeroGPU callbacks may run in a worker that does not share
+            # this RAGEngine instance's in-memory state. Prefer a saved index,
+            # then rebuild the requested strategy from the PDFs still on disk.
+            try:
+                self.indexes[strategy] = load_persisted_index(strategy)
+            except FileNotFoundError:
+                if not self.documents:
+                    self.documents = load_directory(self.config.data_dir)
+                if not self.documents:
+                    raise FileNotFoundError(
+                        "No PDFs or saved index are available. Upload PDFs first."
+                    )
                 self.indexes[strategy] = build_and_persist_index(
                     self.documents,
                     strategy,
                 )
-            else:
-                self.indexes[strategy] = load_persisted_index(strategy)
 
         return self.indexes[strategy]
 
@@ -145,7 +131,6 @@ class RAGEngine:
 
     def ask_stream(self, question: str, strategy: Strategy = "direct"):
         """Yield the growing answer and its retrieved sources as tokens arrive."""
-        query_started = perf_counter()
         question = question.strip()
         if not question:
             raise ValueError("Question cannot be empty.")
@@ -177,26 +162,11 @@ class RAGEngine:
                         }
                     )
 
-                print(
-                    f"[QUERY] Retrieved {len(sources)} sources and prepared "
-                    f"{model} in {perf_counter() - query_started:.2f}s",
-                    flush=True,
-                )
-
                 if attempt:
                     yield f"Primary model unavailable; using {model}.\n\n", sources
 
                 answer_text = ""
-                stream_started = perf_counter()
-                first_token = True
                 for token in response.response_gen:
-                    if first_token:
-                        print(
-                            f"[QUERY] First token from {model} after "
-                            f"{perf_counter() - stream_started:.2f}s",
-                            flush=True,
-                        )
-                        first_token = False
                     answer_text += token
                     yield answer_text, sources
                 return

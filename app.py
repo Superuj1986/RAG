@@ -1,7 +1,6 @@
 
 import sys
 from pathlib import Path
-from time import perf_counter
 
 import gradio as gr
 import spaces
@@ -34,7 +33,6 @@ def ingest(files):
 @spaces.GPU(duration=120)
 def answer(question, strategy):
     try:
-        started = perf_counter()
         for answer_text, sources in engine.ask_stream(question, strategy):
             source_parts = []
             for i, source in enumerate(sources, start=1):
@@ -51,7 +49,6 @@ def answer(question, strategy):
                     f"{source['text']}"
                 )
             yield answer_text, "\n\n---\n\n".join(source_parts)
-        print(f"[QUERY] Completed in {perf_counter() - started:.2f}s", flush=True)
 
     except Exception as exc:
         yield f"Error: {exc}", ""
