@@ -15,7 +15,7 @@ from reading.indexing import (
     index_directory,
     load_persisted_index,
 )
-from reading.ingestion import load_directory
+from reading.ingestion import load_directory, load_pdfs
 from reading.retrieval import build_query_engine
 
 
@@ -48,45 +48,69 @@ class RAGEngine:
             "source_directory": str(source_dir),
         }
 
-    def ingest_uploaded_files(self, file_paths):
+    def load_uploaded_files(self, file_paths):
+        if not file_paths:
+            raise ValueError("Upload at least one PDF file.")
+
+        source_paths = [Path(file_path) for file_path in file_paths]
+        loaded_documents = load_pdfs(source_paths)
+        file_names = [path.name.casefold() for path in source_paths]
+        if len(file_names) != len(set(file_names)):
+            raise ValueError("Uploaded PDFs must have unique file names.")
+
         destination = Path(self.config.data_dir)
         destination.mkdir(parents=True, exist_ok=True)
 
-        saved_paths = []
+        # A new upload replaces the active corpus; remove stale source PDFs
+        # and indexes so later queries cannot retrieve from an earlier upload.
+        uploaded_paths = {path.resolve() for path in source_paths}
+        for existing_pdf in destination.glob("*.pdf"):
+            if existing_pdf.resolve() not in uploaded_paths:
+                existing_pdf.unlink()
+        for strategy in ("direct", "sentence_window", "auto_merging"):
+            stale_index = index_directory(strategy)
+            if stale_index.is_dir():
+                shutil.rmtree(stale_index)
 
-        for file_path in file_paths:
-            source = Path(file_path)
-
-            if not source.is_file() or source.suffix.lower() != ".pdf":
-                raise ValueError(f"Invalid PDF file: {source}")
-
+        for source in source_paths:
             target = destination / source.name
-
             if source.resolve() != target.resolve():
                 shutil.copy2(source, target)
 
-            saved_paths.append(target)
-
-        return self.ingest_directory(destination)
+        self.documents = loaded_documents
+        self.indexes = {}
+        return {
+            "documents": len(loaded_documents),
+            "files": len(source_paths),
+            "source_directory": str(destination),
+        }
 
     def get_index(self, strategy: Strategy) -> VectorStoreIndex:
+        # A new upload removes persisted indexes. This also invalidates cached
+        # indexes held by a separate ZeroGPU callback worker.
+        if strategy in self.indexes and not (
+            index_directory(strategy) / "docstore.json"
+        ).exists():
+            self.indexes.pop(strategy)
+
         if strategy not in self.indexes:
-            # Gradio/ZeroGPU callbacks may run in a worker that does not share
-            # this RAGEngine instance's in-memory state. Prefer a saved index,
-            # then rebuild the requested strategy from the PDFs still on disk.
-            try:
-                self.indexes[strategy] = load_persisted_index(strategy)
-            except FileNotFoundError:
-                if not self.documents:
-                    self.documents = load_directory(self.config.data_dir)
-                if not self.documents:
-                    raise FileNotFoundError(
-                        "No PDFs or saved index are available. Upload PDFs first."
-                    )
+            # Use freshly loaded documents first. In a separate ZeroGPU
+            # callback worker, recover PDFs and build this strategy when its
+            # persisted index is missing.
+            if self.documents:
                 self.indexes[strategy] = build_and_persist_index(
                     self.documents,
                     strategy,
                 )
+            else:
+                try:
+                    self.indexes[strategy] = load_persisted_index(strategy)
+                except FileNotFoundError:
+                    self.documents = load_directory(self.config.data_dir)
+                    self.indexes[strategy] = build_and_persist_index(
+                        self.documents,
+                        strategy,
+                    )
 
         return self.indexes[strategy]
 
